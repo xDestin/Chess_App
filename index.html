@@ -6,14 +6,22 @@
   <style>
     #board { width: 400px; }
     #controls { margin-top: 15px; }
-    button { padding: 8px 12px; margin-right: 8px; }
+    button { padding: 8px 12px; margin: 5px; }
+    .difficulty-btn { background: #eee; border: 1px solid #ccc; cursor: pointer; }
+    .difficulty-btn:hover { background: #ddd; }
+    .selected-square { background-color: rgba(255, 255, 0, 0.6) !important; }
   </style>
 </head>
 <body>
   <div id="board"></div>
   <div id="controls">
     <button id="playHuman">Play Human vs Human</button>
-    <button id="playAI">Play vs AI</button>
+    <div>
+      <span>Play vs AI:</span>
+      <button class="difficulty-btn" data-diff="1">Easy</button>
+      <button class="difficulty-btn" data-diff="2">Medium</button>
+      <button class="difficulty-btn" data-diff="3">Hard</button>
+    </div>
   </div>
 
   <!-- Add jQuery first -->
@@ -28,46 +36,84 @@
   <script>
     let board, game;
     let aiEnabled = false;
-    let aiDepth = 1; // Default difficulty
+    let aiDepth = 1;
+    let selectedSquare = null;
 
     window.onload = function() {
       game = new Chess();
       board = Chessboard('board', {
-        draggable: true,
         position: 'start',
+        draggable: true, // keep drag enabled as fallback
         onDrop: onDrop
       });
 
-      // Buttons
+      // Human vs human
       document.getElementById('playHuman').onclick = () => startHumanGame();
-      document.getElementById('playAI').onclick = () => showDifficultyMenu();
+
+      // AI difficulty buttons
+      document.querySelectorAll('.difficulty-btn').forEach(btn => {
+        btn.addEventListener('click', () => startAIGame(parseInt(btn.dataset.diff)));
+      });
+
+      // Tap-to-move: intercept clicks on board squares
+      $('#board').on('click', '.square-55d63', function() {
+        let square = $(this).attr('data-square');
+        handleSquareClick(square);
+      });
     };
 
     function startHumanGame() {
       aiEnabled = false;
       game.reset();
       board.position('start');
+      selectedSquare = null;
     }
 
-    function showDifficultyMenu() {
-      let difficulty = prompt("Select difficulty: Easy (1), Medium (2), Hard (3)");
-      if (difficulty === "1") aiDepth = 1;
-      else if (difficulty === "2") aiDepth = 2;
-      else if (difficulty === "3") aiDepth = 3;
+    function startAIGame(difficulty) {
       aiEnabled = true;
+      aiDepth = difficulty;
       game.reset();
       board.position('start');
+      selectedSquare = null;
     }
 
     function onDrop(source, target) {
-      // Check if move is legal
-      let move = game.move({ from: source, to: target, promotion: 'q' });
+      const move = game.move({ from: source, to: target, promotion: 'q' });
       if (move === null) return 'snapback';
+      if (aiEnabled && !game.game_over()) setTimeout(makeAIMove, 250);
+    }
 
-      // If AI mode, make AI move
-      if (aiEnabled && !game.game_over()) {
-        setTimeout(makeAIMove, 250);
+    function handleSquareClick(square) {
+      if (!selectedSquare) {
+        // First click: select a piece
+        const moves = game.moves({ square, verbose: true });
+        if (moves.length === 0) return; // no piece there
+        selectedSquare = square;
+        highlightSquare(square);
+      } else {
+        // Second click: attempt move
+        let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+        clearHighlights();
+        if (move === null) {
+          selectedSquare = null;
+          return;
+        }
+        board.position(game.fen());
+        selectedSquare = null;
+
+        if (aiEnabled && !game.game_over()) {
+          setTimeout(makeAIMove, 250);
+        }
       }
+    }
+
+    function highlightSquare(square) {
+      clearHighlights();
+      $(`.square-${square}`).addClass('selected-square');
+    }
+
+    function clearHighlights() {
+      $('.square-55d63').removeClass('selected-square');
     }
 
     function makeAIMove() {
@@ -78,11 +124,9 @@
 
     function getBestMove(game, depth) {
       if (depth === 1) {
-        // EASY: Random move
         let moves = game.moves();
         return moves[Math.floor(Math.random() * moves.length)];
       }
-      // MEDIUM/HARD: Minimax
       return minimaxRoot(depth, game, true);
     }
 
@@ -105,10 +149,7 @@
     }
 
     function minimax(depth, game, alpha, beta, isMaximizingPlayer) {
-      if (depth === 0) {
-        return -evaluateBoard(game.board());
-      }
-
+      if (depth === 0) return -evaluateBoard(game.board());
       let newGameMoves = game.moves();
 
       if (isMaximizingPlayer) {
@@ -139,9 +180,7 @@
       let eval = 0;
       for (let row of board) {
         for (let piece of row) {
-          if (piece) {
-            eval += piece.color === 'w' ? values[piece.type] : -values[piece.type];
-          }
+          if (piece) eval += piece.color === 'w' ? values[piece.type] : -values[piece.type];
         }
       }
       return eval;
