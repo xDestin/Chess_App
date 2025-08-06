@@ -10,6 +10,35 @@
     .difficulty-btn { background: #eee; border: 1px solid #ccc; cursor: pointer; }
     .difficulty-btn:hover { background: #ddd; }
     .selected-square { background-color: rgba(255, 255, 0, 0.6) !important; }
+
+    /* Winning Screen */
+    #gameOverModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+    #gameOverContent {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+    }
+    #restartBtn {
+      margin-top: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    #restartBtn:hover { background: #45a049; }
   </style>
 </head>
 <body>
@@ -21,6 +50,14 @@
       <button class="difficulty-btn" data-diff="1">Easy</button>
       <button class="difficulty-btn" data-diff="2">Medium</button>
       <button class="difficulty-btn" data-diff="3">Hard</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="gameOverModal">
+    <div id="gameOverContent">
+      <h2 id="gameOverMessage"></h2>
+      <button id="restartBtn">Play Again</button>
     </div>
   </div>
 
@@ -43,23 +80,24 @@
       game = new Chess();
       board = Chessboard('board', {
         position: 'start',
-        draggable: true, // keep drag enabled as fallback
+        draggable: true,
         onDrop: onDrop
       });
 
-      // Human vs human
       document.getElementById('playHuman').onclick = () => startHumanGame();
-
-      // AI difficulty buttons
       document.querySelectorAll('.difficulty-btn').forEach(btn => {
         btn.addEventListener('click', () => startAIGame(parseInt(btn.dataset.diff)));
       });
 
-      // Tap-to-move: intercept clicks on board squares
       $('#board').on('click', '.square-55d63', function() {
         let square = $(this).attr('data-square');
         handleSquareClick(square);
       });
+
+      document.getElementById('restartBtn').onclick = function() {
+        document.getElementById('gameOverModal').style.display = 'none';
+        startHumanGame();
+      };
     };
 
     function startHumanGame() {
@@ -80,18 +118,17 @@
     function onDrop(source, target) {
       const move = game.move({ from: source, to: target, promotion: 'q' });
       if (move === null) return 'snapback';
+      checkGameOver();
       if (aiEnabled && !game.game_over()) setTimeout(makeAIMove, 250);
     }
 
     function handleSquareClick(square) {
       if (!selectedSquare) {
-        // First click: select a piece
         const moves = game.moves({ square, verbose: true });
-        if (moves.length === 0) return; // no piece there
+        if (moves.length === 0) return;
         selectedSquare = square;
         highlightSquare(square);
       } else {
-        // Second click: attempt move
         let move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
         clearHighlights();
         if (move === null) {
@@ -100,7 +137,7 @@
         }
         board.position(game.fen());
         selectedSquare = null;
-
+        checkGameOver();
         if (aiEnabled && !game.game_over()) {
           setTimeout(makeAIMove, 250);
         }
@@ -120,6 +157,22 @@
       let bestMove = getBestMove(game, aiDepth);
       game.move(bestMove);
       board.position(game.fen());
+      checkGameOver();
+    }
+
+    function checkGameOver() {
+      if (game.game_over()) {
+        let message = "Game Over!";
+        if (game.in_checkmate()) {
+          message = (game.turn() === 'w' ? "Black wins by checkmate!" : "White wins by checkmate!");
+        } else if (game.in_draw()) {
+          message = "Draw!";
+        } else if (game.in_stalemate()) {
+          message = "Stalemate!";
+        }
+        document.getElementById('gameOverMessage').innerText = message;
+        document.getElementById('gameOverModal').style.display = 'flex';
+      }
     }
 
     function getBestMove(game, depth) {
