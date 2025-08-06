@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
   <style>
     body { background: #1e1e1e; color: white; text-align: center; font-family: Arial, sans-serif; }
-    #board { width: 90vw; max-width: 500px; margin: 20px auto; }
+    #board { width: 90vw; max-width: 500px; margin: 20px auto; display: none; }
     #status { margin: 10px 0; font-size: 1.2rem; }
     button { margin: 5px; padding: 8px 15px; border: none; background: #4CAF50; color: white; border-radius: 5px; cursor: pointer; }
     button:hover { background: #45a049; }
@@ -15,61 +15,74 @@
 </head>
 <body>
   <h1>♟ Web Chess</h1>
+  <div id="menu">
+    <button id="pvp-btn">Two-Player</button>
+    <button id="easy-btn">Easy AI</button>
+  </div>
   <div id="board"></div>
-  <div id="status">Choose a mode to start!</div>
-  <button id="pvp-btn">Two-Player</button>
-  <button id="easy-btn">Easy AI</button>
-  <button id="restart-btn">Restart</button>
+  <div id="status"></div>
+  <button id="restart-btn" style="display:none;">Restart</button>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js" onload="console.log('chess.js loaded')" onerror="console.error('chess.js failed')"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js" onload="console.log('chessboard.js loaded')" onerror="console.error('chessboard.js failed')"></script>
   <script>
-    let game = new Chess();
-    let board = null;
-    let mode = null;
+    window.onload = function () {
+      console.log("Page fully loaded");
+      let game = new Chess();
+      let board = null;
+      let mode = null;
 
-    function onDragStart(source, piece) {
-      if (game.game_over()) return false;
-      if (mode === "easy" && game.turn() === 'b') return false; 
-      if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) return false;
-    }
+      function onDragStart(source, piece) {
+        if (game.game_over()) return false;
+        if (mode === "easy" && game.turn() === 'b') return false;
+        if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) return false;
+      }
 
-    function onDrop(source, target) {
-      let move = game.move({ from: source, to: target, promotion: 'q' });
-      if (move === null) return 'snapback';
-      updateStatus();
-      if (mode === "easy" && !game.game_over()) setTimeout(makeRandomMove, 400);
-    }
+      function onDrop(source, target) {
+        let move = game.move({ from: source, to: target, promotion: 'q' });
+        if (move === null) return 'snapback';
+        updateStatus();
+        if (mode === "easy" && !game.game_over()) setTimeout(makeRandomMove, 400);
+      }
 
-    function makeRandomMove() {
-      let moves = game.moves();
-      let move = moves[Math.floor(Math.random() * moves.length)];
-      game.move(move);
-      board.position(game.fen());
-      updateStatus();
-    }
+      function makeRandomMove() {
+        let moves = game.moves();
+        let move = moves[Math.floor(Math.random() * moves.length)];
+        game.move(move);
+        board.position(game.fen());
+        updateStatus();
+      }
 
-    function updateStatus() {
-      let status = '';
-      if (game.in_checkmate()) status = 'Checkmate!';
-      else if (game.in_draw()) status = 'Draw!';
-      else status = (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
-      document.getElementById('status').textContent = status;
-      board.position(game.fen());
-    }
+      function updateStatus() {
+        let status = '';
+        if (game.in_checkmate()) status = 'Checkmate!';
+        else if (game.in_draw()) status = 'Draw!';
+        else status = (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
+        document.getElementById('status').textContent = status;
+        board.position(game.fen());
+      }
 
-    function resetGame() {
-      game.reset();
-      board.start();
-      updateStatus();
-    }
+      function resetGame() {
+        game.reset();
+        board.start();
+        updateStatus();
+      }
 
-    document.getElementById('pvp-btn').addEventListener('click', () => { mode = 'pvp'; resetGame(); });
-    document.getElementById('easy-btn').addEventListener('click', () => { mode = 'easy'; resetGame(); });
-    document.getElementById('restart-btn').addEventListener('click', resetGame);
+      function startGame(selectedMode) {
+        console.log("Game started in mode:", selectedMode);
+        mode = selectedMode;
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("board").style.display = "block";
+        document.getElementById("restart-btn").style.display = "inline-block";
+        resetGame();
+      }
 
-    board = Chessboard('board', { draggable: true, position: 'start', onDragStart: onDragStart, onDrop: onDrop });
-    updateStatus();
+      document.getElementById('pvp-btn').addEventListener('click', () => startGame("pvp"));
+      document.getElementById('easy-btn').addEventListener('click', () => startGame("easy"));
+      document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+      board = Chessboard('board', { draggable: true, position: 'start', onDragStart: onDragStart, onDrop: onDrop });
+    };
   </script>
 </body>
 </html>
